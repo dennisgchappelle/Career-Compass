@@ -5,9 +5,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const studentBox = document.getElementById("AstudentBox");
     const counselorBox = document.getElementById("AcounselorBox");
 
-    if (allUsersButton) {
-        allUsersButton.addEventListener("click", () => {
+    if (counselorBox) {
+        counselorBox.addEventListener("click", () => {
             window.location.href = "admin_dashboard.html";
+        });
+    }
+
+    if (studentBox) {
+        studentBox.addEventListener("click", () => {
+            window.location.href = "analytics.html";
         });
     }
 

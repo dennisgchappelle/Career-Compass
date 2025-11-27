@@ -1,13 +1,7 @@
 
 function loadStudentApplications() {
-    const counselorData = sessionStorage.getItem("counselor");
-    const counselor = counselorData ? JSON.parse(counselorData) : null;
-
-    const university = prompt("Enter the university to search for prospective students:");
-    if (!university) {
-        alert("University is required to view students.");
-        return;
-    }
+    const university = document.getElementById("universitySelect").value;
+    if (!university) return;
 
     fetch(`/counselor/students/university-applications?university=${encodeURIComponent(university)}`)
         .then(res => res.json())
@@ -16,6 +10,7 @@ function loadStudentApplications() {
             console.error("Error fetching student data:", err);
             alert("Failed to load student data.");
         });
+}
 
     function displayStudents(studentsWithApplications) {
         const container = document.createElement("div");
@@ -62,11 +57,25 @@ function loadStudentApplications() {
 
         document.querySelector(".dashboard-content").appendChild(container);
     }
-}
+
 
 function toggleDetails(id) {
     const element = document.getElementById(id);
     if (element) {
         element.style.display = (element.style.display === "none") ? "block" : "none";
     }
+}
+function populateUniversityDropdown() {
+    fetch("/universities")
+        .then(res => res.json())
+        .then(universities => {
+            const select = document.getElementById("universitySelect");
+            universities.forEach(u => {
+                const option = document.createElement("option");
+                option.value = u;
+                option.textContent = u;
+                select.appendChild(option);
+            });
+        })
+        .catch(err => console.error("Error loading universities:", err));
 }

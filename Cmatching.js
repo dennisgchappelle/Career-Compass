@@ -90,8 +90,18 @@ document.addEventListener("DOMContentLoaded", function () {
             if (response.ok) {
                 alert("Student matched to job successfully!");
 
-                // ✅ AFTER MATCHING, ASK COUNSELOR FOR MESSAGE
-                const defaultMessage = "Hello! I recommended you for a new opportunity. Please check it out!";
+                // ✅ Find the job info for the message
+                const selectedJob = await fetch(`/jobs`)
+                    .then(res => res.json())
+                    .then(jobs => jobs.find(job => job._id === selectedJobId));
+
+                if (!selectedJob) {
+                    console.error("Selected job not found for message.");
+                    return;
+                }
+
+                const defaultMessage = `Greetings! I think the ${selectedJob.jobTitle} role at ${selectedJob.company} fits your skill set. You will now see a Gold Star above the job. Please, check it out!`;
+
                 const customMessage = prompt("Enter a message to send to the student:", defaultMessage);
 
                 if (customMessage && customMessage.trim().length > 0) {

@@ -1,79 +1,96 @@
+// counselor_dashboard.js
+
 document.addEventListener("DOMContentLoaded", () => {
+    const postWorkshopModal = document.getElementById("postWorkshopModal");
+    const closePostWorkshop = document.getElementById("closePostWorkshop");
+    const postWorkshopForm = document.getElementById("postWorkshopForm");
+
     const counselorData = sessionStorage.getItem("counselor");
     const counselor = counselorData ? JSON.parse(counselorData) : null;
 
-    const universitySelect = document.getElementById("universityFilter");
-
-    // Fetch all unique universities
-    fetch("/students/universities")
-        .then(res => res.json())
-        .then(universities => {
-            universities.forEach(u => {
-                const option = document.createElement("option");
-                option.value = u;
-                option.textContent = u;
-                universitySelect.appendChild(option);
-            });
-
-            // Optional: auto-select counselor's university
-            if (counselor?.university) {
-                universitySelect.value = counselor.university;
-                universitySelect.dispatchEvent(new Event("change"));
-            }
-        });
-
-    universitySelect.addEventListener("change", () => {
-        const university = universitySelect.value;
-        if (!university) return;
-
-        fetch(`/counselor/students/university-applications?university=${encodeURIComponent(university)}`)
-            .then(res => res.json())
-            .then(data => displayStudents(data))
-            .catch(err => {
-                console.error("Error fetching student data:", err);
-                alert("Failed to load student data.");
-            });
-    });
-
-    function displayStudents(studentsWithApplications) {
-        const container = document.createElement("div");
-        container.style.marginTop = "2rem";
-
-        studentsWithApplications.forEach(({ student, applications }) => {
-            const card = document.createElement("div");
-            card.className = "dashboard-card";
-            card.innerHTML = `
-            <div>
-                <h3>${student.firstname || "N/A"} ${student.lastname || "N/A"}</h3>
-                <p><strong>Username:</strong> ${student.username || "N/A"}</p>
-                <p><strong>Major:</strong> ${student.major || "N/A"}</p>
-                <p><strong>University:</strong> ${student.university || "N/A"}</p>
-                <h4>Applications:</h4>
-                ${
-                applications.length === 0
-                    ? "<p>No applications submitted.</p>"
-                    : "<ul>" + applications.map(app => `
-                                <li>
-                                    <strong>${app.jobTitle}</strong> at ${app.company}<br/>
-                                    <strong>Status:</strong> ${app.status}<br/>
-                                    <strong>Email:</strong> ${app.email}<br/>
-                                    ${app.skills?.length ? `<strong>Skills:</strong> ${app.skills.join(", ")}` : ""}
-                                    ${app.resume ? `<br/><a href="${app.resume}" target="_blank">📄 View Resume</a>` : ""}
-                                    <br/><em>Applied on: ${new Date(app.appliedAt).toLocaleDateString()}</em>
-                                </li>
-                            `).join("") + "</ul>"
-            }
-                <button onclick="suggestJobToStudent('${student._id}', '${student.firstname} ${student.lastname}')">Suggest Job</button>
-            </div>
-        `;
-            container.appendChild(card);
-        });
-
-        const prev = document.querySelector(".dashboard-content .results");
-        if (prev) prev.remove();
-
-        container.classList.add("results");
-        document.querySelector(".dashboard-content").appendChild(container);
+    if (!counselor) {
+        alert("You need to log in as a counselor.");
+        return;
     }
 
+    closePostWorkshop.addEventListener("click", () => {
+        postWorkshopModal.style.display = "none";
+    });
+
+    postWorkshopForm.addEventListener("submit", async function (e) {
+        e.preventDefault();
+
+        const newWorkshop = {
+            workshopTitle: document.getElementById("workshopTitle").value.trim(),
+            date: document.getElementById("date").value,
+            time: document.getElementById("time").value,
+            location: document.getElementById("location").value.trim(),
+            description: document.getElementById("description").value.trim(),
+            counselorID: counselor._id
+        };
+
+        const response = await fetch("/workshops", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(newWorkshop)
+        });
+
+        const result = await response.json();
+        if (response.ok) {
+            alert("Workshop posted successfully!");
+            postWorkshopModal.style.display = "none";
+        } else {
+            alert("Error: " + result.message);
+        }
+    });
 });
+
+function openWorkshopModal() {
+    document.getElementById("postWorkshopModal").style.display = "block";
+}
+
+function matchOpportunities() {
+    window.location.href = "Cmatching.html";
+}
+
+function viewMessages() {
+    const stored = sessionStorage.getItem("counselor");
+    if (!stored) {
+        alert("Session expired. Please log in again.");
+        return;
+    }
+
+    const parsed = JSON.parse(stored);
+    sessionStorage.setItem("counselor", JSON.stringify(parsed));
+
+    window.location.href = "Counselormessenger.html";
+}
+
+function loadStudentApplications() {
+    window.location.href = "StudentApplications.html";
+}
+
+function logout() {
+    sessionStorage.clear();
+    localStorage.clear();
+    showLogoutPopup();
+    setTimeout(() => {
+        window.location.href = "welcome.html";
+    }, 2000);
+}
+
+function showLogoutPopup() {
+    const existingPopup = document.querySelector(".logout-popup");
+    if (existingPopup) existingPopup.remove();
+
+    const popup = document.createElement("div");
+    popup.textContent = "Logging Out... See you soon!";
+    popup.className = "logout-popup";
+    document.body.appendChild(popup);
+
+    setTimeout(() => popup.classList.add("visible"), 10);
+    setTimeout(() => {
+        popup.classList.add("slide-out");
+        setTimeout(() => popup.remove(), 500);
+    }, 1500);
+}

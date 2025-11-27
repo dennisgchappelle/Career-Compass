@@ -13,6 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("sortSalary").addEventListener("change", filterAndDisplayJobs);
     document.getElementById("filterCompany").addEventListener("change", filterAndDisplayJobs);
     document.getElementById("filterTitle").addEventListener("change", filterAndDisplayJobs);
+    document.getElementById("filterRecommended").addEventListener("change", filterAndDisplayJobs);
 });
 
 let allJobs = [];
@@ -54,6 +55,10 @@ function filterAndDisplayJobs() {
     const sortSalary = document.getElementById("sortSalary").value;
     const selectedCompany = document.getElementById("filterCompany").value;
     const selectedTitle = document.getElementById("filterTitle").value;
+    const recommendedOnly = document.getElementById("filterRecommended").checked;
+
+    const student = JSON.parse(sessionStorage.getItem("student"));
+    const recommendedJobs = (student.recommendedJobs || []).map(rec => rec.jobId);
 
     let filteredJobs = [...allJobs];
 
@@ -63,6 +68,9 @@ function filterAndDisplayJobs() {
     if (selectedTitle) {
         filteredJobs = filteredJobs.filter(job => job.jobTitle === selectedTitle);
     }
+    if (recommendedOnly) {
+        filteredJobs = filteredJobs.filter(job => recommendedJobs.includes(job._id));
+    }
     if (sortSalary === "asc") {
         filteredJobs.sort((a, b) => a.salary - b.salary);
     } else if (sortSalary === "desc") {
@@ -71,6 +79,7 @@ function filterAndDisplayJobs() {
 
     renderJobCards(filteredJobs);
 }
+
 
 function renderJobCards(jobs) {
     const jobCardsContainer = document.getElementById("jobCards");

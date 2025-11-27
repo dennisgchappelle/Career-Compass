@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Counselor Dashboard</title>
-    <script src="counselorD.js" defer></script>
+    <script src="counselor_dashboard.js" defer></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         body {
@@ -118,16 +118,12 @@
 <div class="dashboard-container">
     <div class="dashboard-header">
         <h1>Welcome, Counselor</h1>
-        <label for="universityFilter"><strong>Select University:</strong></label>
-        <select id="universityFilter">
-            <option value="">-- Choose a university --</option>
-        </select>
     </div>
 
     <div class="dashboard-content">
         <div class="dashboard-card">
-            <h3>View Students</h3>
-            <button onclick="viewStudents()">Go</button>
+            <h3>Post New Workshop</h3>
+            <button onclick="window.location.href='workshop.html'">Go</button>
         </div>
 
         <div class="dashboard-card">
@@ -148,6 +144,33 @@
 
     <button class="logout-btn" onclick="logout()">Logout</button>
 </div>
+
+<!-- Workshop Modal -->
+<div id="postWorkshopModal" class="job-modal" style="display:none;">
+    <div class="form-container">
+        <h2>Post a Workshop</h2>
+        <form id="postWorkshopForm">
+            <label for="workshopTitle">Workshop Title</label>
+            <input type="text" id="workshopTitle" required>
+
+            <label for="date">Date</label>
+            <input type="date" id="date" required>
+
+            <label for="time">Time</label>
+            <input type="time" id="time" required>
+
+            <label for="location">Location</label>
+            <input type="text" id="location" required>
+
+            <label for="description">Description</label>
+            <textarea id="description" required></textarea>
+
+            <button type="submit" class="submit-btn">Post Workshop</button>
+            <button type="button" id="closePostWorkshop" class="cancel-btn">Cancel</button>
+        </form>
+    </div>
+</div>
+
 
 <script>
     function logout() {

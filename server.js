@@ -18,8 +18,7 @@ app.use(express.static(__dirname, {
 
 
 // MongoDB Connection String
-const uri = "mongodb+srv://tbrown12354:SGoku1932@coursecompass.lespq.mongodb.net/?retryWrites=true&w=majority&appName=CourseCompass";
-
+const uri = "mongodb+srv://tbrown12354:SGoku1932@coursecompass.lespq.mongodb.net/?appName=CourseCompass";
 const client = new MongoClient(uri, {
     serverApi: {
         version: ServerApiVersion.v1,
@@ -41,6 +40,7 @@ async function connectDB() {
         messagesCollection = database.collection("messages");
         adminsCollection = database.collection("admins");
         counselorsCollection = database.collection("counselors"); // ✅ Add this line
+        workshopsCollection = database.collection("workshops"); // ✅ NEW
 
         console.log("✅ Successfully connected to MongoDB!");
     } catch (error) {
@@ -112,6 +112,7 @@ app.post("/student/signup", async (req, res) => {
             password,
             university,
             appliedJobs: [],
+            workshopsAttended: [],
             isActive: true,
             createdAt: new Date(),
             messageSenderID: uuidv4(),
@@ -275,6 +276,16 @@ app.delete('/jobs/:jobId', async (req, res) => {
     } catch (error) {
         console.error("Error deleting job:", error);
         res.status(500).json({ message: "Internal server error", error: error.message });
+    }
+});
+
+app.get("/universities", async (req, res) => {
+    try {
+        const universities = await studentsCollection.distinct("university");
+        res.json(universities);
+    } catch (err) {
+        console.error("Error fetching universities:", err);
+        res.status(500).json({ message: "Failed to fetch universities" });
     }
 });
 
@@ -1053,38 +1064,248 @@ app.get('/users/by-role/:role', async (req, res) => {
     }
 });
 
+app.get("/workshops/by-counselor/:counselorID", async (req, res) => {
+    try {
+        const { counselorID } = req.params;
+        const workshops = await workshopsCollection.find({ counselorID }).toArray();
+        res.json(workshops);
+    } catch (error) {
+        console.error("Error fetching workshops by counselor:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+});
 
-// ✅ Back-end route to allow counselor to suggest a job to a student
-app.post("/counselor/suggest-job", async (req, res) => {
-    const { counselorId, studentId, jobId } = req.body;
+app.post("/workshops/:workshopID/register", async (req, res) => {
+    const { workshopID } = req.params;
+    const { studentID, firstName, lastName } = req.body;
 
-    if (!counselorId || !studentId || !jobId) {
-        return res.status(400).json({ message: "Missing counselorId, studentId, or jobId" });
+    if (!studentID || !firstName || !lastName) {
+        return res.status(400).json({ message: "Missing student information" });
     }
 
     try {
-        const job = await jobsCollection.findOne({ jobId });
-        if (!job) return res.status(404).json({ message: "Job not found" });
+        // Get the full workshop to retrieve counselorID
+        const workshop = await workshopsCollection.findOne({ _id: new ObjectId(workshopID) });
+        if (!workshop) {
+            return res.status(404).json({ message: "Workshop not found" });
+        }
 
-        const suggestion = {
-            jobId,
-            jobTitle: job.jobTitle,
-            company: job.company,
-            suggestedAt: new Date(),
-            counselorId
-        };
-
-        await studentsCollection.updateOne(
-            { _id: new ObjectId(studentId) },
-            { $push: { suggestedJobs: suggestion } }
+        // Add student to workshop's attendee list
+        await workshopsCollection.updateOne(
+            { _id: new ObjectId(workshopID) },
+            { $addToSet: { attendees: { studentID, firstName, lastName } } }
         );
 
-        res.status(200).json({ message: "Job suggested successfully." });
+        // Add workshop info to student's document
+        await studentsCollection.updateOne(
+            { _id: new ObjectId(studentID) },
+            {
+                $addToSet: {
+                    workshopsAttended: {
+                        workshopID,
+                        attendedAt: new Date(),
+                        counselorID: workshop.counselorID
+                    }
+                }
+            }
+        );
+
+        res.status(200).json({ message: "Successfully registered for the workshop" });
     } catch (error) {
-        console.error("Error suggesting job:", error);
-        res.status(500).json({ message: "Failed to suggest job" });
+        console.error("Error registering for workshop:", error);
+        res.status(500).json({ message: "Server error" });
     }
 });
+
+
+// ✅ Fetch all workshops (for students)
+app.get("/workshops", async (req, res) => {
+    try {
+        const workshops = await workshopsCollection.find().toArray();
+        res.status(200).json(workshops);
+    } catch (error) {
+        console.error("Error fetching workshops:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+});
+
+app.post('/workshops', async (req, res) => {
+    try {
+        const { workshopTitle, date, time, location, description, counselorID } = req.body;
+
+        if (!workshopTitle || !date || !time || !location || !description || !counselorID) {
+            return res.status(400).json({ message: "All fields are required." });
+        }
+
+        const newWorkshop = {
+            workshopId: uuidv4(),
+            workshopTitle,
+            date,
+            time,
+            location,
+            description,
+            counselorID,
+            postedDate: new Date(),
+            attendees: []  // Empty initially
+        };
+
+        const result = await workshopsCollection.insertOne(newWorkshop);
+        const insertedId = result.insertedId;
+
+        if (result.acknowledged) {
+            await counselorsCollection.updateOne(
+                { _id: new ObjectId(counselorID) },
+                { $push: { workshopsPosted: { workshopId: insertedId.toString(), workshopTitle: newWorkshop.workshopTitle } } }
+            );
+            res.status(201).json({ message: "Workshop posted successfully!", workshop: newWorkshop });
+        } else {
+            res.status(500).json({ message: "Failed to insert workshop into database." });
+        }
+    } catch (error) {
+        console.error("Error posting workshop:", error);
+        res.status(500).json({ message: "Internal server error", error: error.message });
+    }
+});
+
+app.get("/analytics/platform", async (req, res) => {
+    try {
+        const [studentCount, recruiterCount, counselorCount, adminCount] = await Promise.all([
+            studentsCollection.countDocuments(),
+            recruitersCollection.countDocuments(),
+            counselorsCollection.countDocuments(),
+            adminsCollection.countDocuments()
+        ]);
+
+        res.json({
+            studentCount,
+            recruiterCount,
+            counselorCount,
+            adminCount
+        });
+    } catch (err) {
+        console.error("Error fetching platform analytics:", err);
+        res.status(500).json({ message: "Internal server error" });
+    }
+});
+
+
+app.get("/analytics/recruiter/:id", async (req, res) => {
+    const recruiterId = req.params.id;
+
+    try {
+        const jobs = await jobsCollection.find({ recruiterID: recruiterId }).toArray();
+
+        const totalJobs = jobs.length;
+        const totalApplicants = jobs.reduce((sum, job) => sum + (job.applicants?.length || 0), 0);
+        const mostAppliedJob = jobs.reduce((prev, curr) => {
+            return (curr.applicants?.length || 0) > (prev.applicants?.length || 0) ? curr : prev;
+        }, { applicants: [] });
+
+        const mostRecentJob = jobs.sort((a, b) => new Date(b.postedDate) - new Date(a.postedDate))[0];
+
+        res.json({
+            totalJobs,
+            totalApplicants,
+            mostAppliedJob,
+            mostRecentJob
+        });
+    } catch (err) {
+        console.error("Error fetching recruiter analytics:", err);
+        res.status(500).json({ message: "Internal server error" });
+    }
+});
+
+app.get("/analytics/student/:id", async (req, res) => {
+    const studentId = req.params.id;
+
+    try {
+        const student = await studentsCollection.findOne({ _id: new ObjectId(studentId) });
+        if (!student) return res.status(404).json({ message: "Student not found" });
+
+        const totalApplied = (student.appliedJobs || []).length;
+        const totalWorkshops = (student.workshopsAttended || []).length;
+
+        let mostRecentWorkshop = null;
+        let mostRecentApplication = null;
+
+        // Most Recent Workshop
+        if (student.workshopsAttended?.length > 0) {
+            const lastWorkshopEntry = student.workshopsAttended[student.workshopsAttended.length - 1];
+
+            const workshop = await workshopsCollection.findOne({ _id: new ObjectId(lastWorkshopEntry.workshopID) });
+            const counselor = await counselorsCollection.findOne({ _id: new ObjectId(lastWorkshopEntry.counselorID) });
+
+            mostRecentWorkshop = {
+                title: workshop?.workshopTitle || "N/A",
+                attendedAt: lastWorkshopEntry.attendedAt,
+                counselorName: counselor ? `${counselor.firstName} ${counselor.lastName}` : "N/A"
+            };
+        }
+
+        // Most Recent Application
+        if (student.appliedJobs?.length > 0) {
+            const lastApplication = student.appliedJobs[student.appliedJobs.length - 1];
+
+            const job = await jobsCollection.findOne({ _id: new ObjectId(lastApplication.jobId) });
+
+            mostRecentApplication = {
+                title: job?.jobTitle || "N/A",
+                company: job?.company || "N/A",
+                appliedAt: lastApplication.appliedAt || "N/A"
+            };
+        }
+
+        res.json({
+            totalApplied,
+            totalWorkshops,
+            mostRecentApplication,
+            mostRecentWorkshop
+        });
+    } catch (err) {
+        console.error("Error fetching student analytics:", err);
+        res.status(500).json({ message: "Internal server error" });
+    }
+});
+
+
+
+app.get("/analytics/counselor/:id", async (req, res) => {
+    const counselorId = req.params.id;
+
+    try {
+        const workshops = await workshopsCollection.find({ counselorID: counselorId }).toArray();
+        const students = await studentsCollection.find({ "recommendedJobs.counselorId": counselorId }).toArray();
+
+        const totalWorkshops = workshops.length;
+
+        let recommendationCount = 0;
+        const interactionMap = {};
+
+        students.forEach(student => {
+            const recs = student.recommendedJobs?.filter(r => r.counselorId === counselorId) || [];
+            recommendationCount += recs.length;
+
+            const name = `${student.firstName} ${student.lastName}`;
+            interactionMap[name] = (interactionMap[name] || 0) + recs.length;
+        });
+
+        const topStudent = Object.entries(interactionMap).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+
+        res.json({
+            totalWorkshops,
+            totalRecommended: recommendationCount,
+            topStudent
+        });
+    } catch (err) {
+        console.error("Error fetching counselor analytics:", err);
+        res.status(500).json({ message: "Internal server error" });
+    }
+});
+
+
+
+
+
 
 // ✅ Add suggestedJobs field to student model when created (ensure frontend reflects this too)
 // Within student signup logic:

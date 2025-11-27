@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Student Applications</title>
+    <script src="counselorD.js" defer></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:400,700&display=swap">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 2rem;
+            background-color: #f4f4f4;
+        }
+
+        h1 {
+            text-align: center;
+            color: #007bff;
+            margin-bottom: 1rem;
+        }
+
+        .dropdown-container {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        select {
+            padding: 0.5rem;
+            font-size: 1rem;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+
+        .dashboard-content {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .dashboard-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        .dashboard-card h3 {
+            margin-top: 0;
+            color: #007bff;
+        }
+
+        .dashboard-card ul {
+            padding-left: 1rem;
+        }
+
+        .dashboard-card button {
+            margin: 0 5px;
+            padding: 5px 10px;
+            font-size: 0.9rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .dashboard-card button:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body onload="populateUniversityDropdown()">
+<h1>Student Applications</h1>
+
+<div class="dropdown-container">
+    <label for="universitySelect"><strong>Select University:</strong></label>
+    <select id="universitySelect" onchange="loadStudentApplications()">
+        <option value="">-- Choose a University --</option>
+    </select>
+</div>
+
+<div class="dashboard-content"></div>
+</body>
+</html>
