@@ -1,3 +1,7 @@
+// Load environment variables (local only)
+if (process.env.NODE_ENV !== "production") {
+    require("dotenv").config();
+}
 const { v4: uuidv4 } = require('uuid');
 const express = require('express');
 const router = express.Router(); // ✅ Fix: Define the router
@@ -8,7 +12,7 @@ const bcrypt = require('bcrypt');
 
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
@@ -18,16 +22,24 @@ app.use(express.static(__dirname, {
 
 
 // MongoDB Connection String
-const uri = "mongodb+srv://tbrown12354:SGoku1932@coursecompass.lespq.mongodb.net/?appName=CourseCompass";
+// MongoDB Connection String
+const uri = process.env.MONGO_URI;
+
+if (!uri) {
+    throw new Error("❌ MONGO_URI is not defined. Add it to .env (local) or Render Environment Variables.");
+}
+
 const client = new MongoClient(uri, {
     serverApi: {
         version: ServerApiVersion.v1,
-        deprecationErrors: true // (optional to keep, safe)
+        strict: true,
+        deprecationErrors: true
     }
 });
 
 
-let database, studentsCollection, recruitersCollection, jobsCollection;
+
+let database, studentsCollection, recruitersCollection, jobsCollection, messagesCollection, adminsCollection, counselorsCollection, workshopsCollection;
 
 async function connectDB() {
     try {
@@ -514,7 +526,8 @@ app.get("/messages/thread/:recruiterSenderId/:recruiterReceiverId/:applicantSend
 app.get("/messages/thread/:id1/:id2", async (req, res) => {
     const { id1, id2 } = req.params;
     try {
-        const threadMessages = await db.collection("messages")
+        const threadMessages = await database.collection("messages")
+
             .find({
                 $or: [
                     { senderId: id1, receiverId: id2 },
@@ -1302,6 +1315,19 @@ app.get("/analytics/counselor/:id", async (req, res) => {
     }
 });
 
+// Render health checks
+app.get("/health", (req, res) => {
+    res.status(200).send("ok");
+});
+
+app.get("/db-health", async (req, res) => {
+    try {
+        await client.db("admin").command({ ping: 1 });
+        res.status(200).json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ ok: false, error: err.message });
+    }
+});
 
 
 
